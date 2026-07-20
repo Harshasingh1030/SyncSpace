@@ -1,19 +1,75 @@
-* {
+:root {
+  /* Color palette */
+  --color-primary: #ff9839;
+  --color-primary-dark: #d97500;
+  --color-primary-darker: #b56200;
+  --color-bg-dark: #010430;
+  --color-text-light: #ffffff;
+  --color-text-muted: rgba(255, 255, 255, 0.75);
+  --color-surface: #ffffff;
+  --color-surface-alt: #f4f5f7;
+  --color-border: #e2e2e2;
+
+  /* Spacing scale */
+  --space-1: 0.4rem;
+  --space-2: 0.8rem;
+  --space-3: 1.2rem;
+  --space-4: 1.6rem;
+  --space-5: 2.4rem;
+  --space-6: 3.2rem;
+
+  /* Radius & shadow */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.16);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+}
+
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html {
+  /* Prevents layout shift from scrollbar appearing/disappearing */
+  overflow-y: scroll;
+}
+
 body {
-  margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  color: #1a1a1a;
+  overflow-x: hidden;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+}
+
+/* Visible keyboard focus everywhere, without adding an outline on mouse click */
+:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
 }

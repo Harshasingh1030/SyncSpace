@@ -11,6 +11,7 @@ import MicOffIcon from '@mui/icons-material/MicOff'
 import ScreenShareIcon from '@mui/icons-material/ScreenShare';
 import StopScreenShareIcon from '@mui/icons-material/StopScreenShare'
 import ChatIcon from '@mui/icons-material/Chat'
+import SendIcon from '@mui/icons-material/Send'
 import server from '../environment';
 
 const server_url = server;
@@ -58,11 +59,6 @@ export default function VideoMeetComponent() {
 
     let [videos, setVideos] = useState([])
 
-    // TODO
-    // if(isChrome() === false) {
-
-
-    // }
 
     useEffect(() => {
         console.log("HELLO")
@@ -309,7 +305,6 @@ export default function VideoMeetComponent() {
                         if (videoExists) {
                             console.log("FOUND EXISTING");
 
-                            // Update the stream of the existing video
                             setVideos(videos => {
                                 const updatedVideos = videos.map(video =>
                                     video.socketId === socketListId ? { ...video, stream: event.stream } : video
@@ -439,7 +434,7 @@ export default function VideoMeetComponent() {
         // this.setState({ message: "", sender: username })
     }
 
-    
+
     let connect = () => {
         setAskForUsername(false);
         getMedia();
@@ -447,31 +442,56 @@ export default function VideoMeetComponent() {
 
 
     return (
-        <div>
+        <div className={styles.pageRoot}>
 
             {askForUsername === true ?
 
-                <div>
+                <div className={styles.lobbyContainer}>
+                    <div className={styles.lobbyCard}>
 
+                        <span className={styles.lobbyBadge}>Premium Video Meetings</span>
 
-                    <h2>Enter into Lobby </h2>
-                    <TextField id="outlined-basic" label="Username" value={username} onChange={e => setUsername(e.target.value)} variant="outlined" />
-                    <Button variant="contained" onClick={connect}>Connect</Button>
+                        <h2>SyncSpace <br></br>
+                            Secure Video Meetings</h2>
 
+                        <p className={styles.lobbySubtitle}>
+                            Join your meeting by entering your name.
+                        </p>
 
-                    <div>
-                        <video ref={localVideoref} autoPlay muted></video>
+                        <div className={styles.lobbyPreview}>
+                            <video ref={localVideoref} autoPlay muted />
+                        </div>
+
+                        <div className={styles.lobbyForm}>
+                            <TextField
+                                label="Username"
+                                variant="outlined"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                fullWidth
+                                className={styles.lobbyInput}
+                            />
+
+                            <Button variant="contained" onClick={connect} className={styles.primaryButton}>
+                                Connect
+                            </Button>
+                        </div>
+
                     </div>
-
-                </div> :
-
+                </div>
+                :
 
                 <div className={styles.meetVideoContainer}>
 
                     {showModal ? <div className={styles.chatRoom}>
 
                         <div className={styles.chatContainer}>
-                            <h1>Chat</h1>
+                            <div className={styles.chatHeader}>
+                                <h1>Chat</h1>
+                                <IconButton onClick={closeChat} className={styles.chatCloseButton} size="small">
+                                    &times;
+                                </IconButton>
+                            </div>
 
                             <div className={styles.chattingDisplay}>
 
@@ -479,19 +499,29 @@ export default function VideoMeetComponent() {
 
                                     console.log(messages)
                                     return (
-                                        <div style={{ marginBottom: "20px" }} key={index}>
-                                            <p style={{ fontWeight: "bold" }}>{item.sender}</p>
-                                            <p>{item.data}</p>
+                                        <div className={styles.messageBubble} key={index}>
+                                            <p className={styles.messageSender}>{item.sender}</p>
+                                            <p className={styles.messageText}>{item.data}</p>
                                         </div>
                                     )
-                                }) : <p>No Messages Yet</p>}
+                                }) : <p className={styles.emptyChatText}>No Messages Yet</p>}
 
 
                             </div>
 
                             <div className={styles.chattingArea}>
-                                <TextField value={message} onChange={(e) => setMessage(e.target.value)} id="outlined-basic" label="Enter Your chat" variant="outlined" />
-                                <Button variant='contained' onClick={sendMessage}>Send</Button>
+                                <TextField
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                    id="outlined-basic"
+                                    label="Enter Your chat"
+                                    variant="outlined"
+                                    fullWidth
+                                    className={styles.lobbyInput}
+                                />
+                                <IconButton onClick={sendMessage} className={styles.chatSendButton}>
+                                    <SendIcon />
+                                </IconButton>
                             </div>
 
 
@@ -500,36 +530,36 @@ export default function VideoMeetComponent() {
 
 
                     <div className={styles.buttonContainers}>
-                        <IconButton onClick={handleVideo} style={{ color: "white" }}>
+                        <IconButton onClick={handleVideo} className={styles.controlButton}>
                             {(video === true) ? <VideocamIcon /> : <VideocamOffIcon />}
                         </IconButton>
-                        <IconButton onClick={handleEndCall} style={{ color: "red" }}>
-                            <CallEndIcon  />
-                        </IconButton>
-                        <IconButton onClick={handleAudio} style={{ color: "white" }}>
+                        <IconButton onClick={handleAudio} className={styles.controlButton}>
                             {audio === true ? <MicIcon /> : <MicOffIcon />}
                         </IconButton>
 
                         {screenAvailable === true ?
-                            <IconButton onClick={handleScreen} style={{ color: "white" }}>
+                            <IconButton onClick={handleScreen} className={styles.controlButton}>
                                 {screen === true ? <ScreenShareIcon /> : <StopScreenShareIcon />}
                             </IconButton> : <></>}
 
-                        <Badge badgeContent={newMessages} max={999} color='orange'>
-                            <IconButton onClick={() => setModal(!showModal)} style={{ color: "white" }}>
-                                <ChatIcon />                        </IconButton>
-                        </Badge>
+                        
+                            <IconButton onClick={() => setModal(!showModal)} className={styles.controlButton}>
+                                <ChatIcon />
+                            </IconButton>
+                        
 
+                        <IconButton onClick={handleEndCall} className={styles.endCallButton}>
+                            <CallEndIcon />
+                        </IconButton>
                     </div>
 
 
                     <video className={styles.meetUserVideo} ref={localVideoref} autoPlay muted></video>
 
                     <div className={styles.conferenceView}>
-                        {videos.map((video) => (
-                            <div key={video.socketId}>
+                        {videos.map((video, index) => (
+                            <div className={styles.videoTile} key={video.socketId}>
                                 <video
-
                                     data-socket={video.socketId}
                                     ref={ref => {
                                         if (ref && video.stream) {
@@ -539,6 +569,7 @@ export default function VideoMeetComponent() {
                                     autoPlay
                                 >
                                 </video>
+                                <span className={styles.participantName}>Participant {index + 1}</span>
                             </div>
 
                         ))}
