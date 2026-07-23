@@ -30,7 +30,6 @@ export const connectToSocket = (server) => {
             timeOnline[socket.id] = new Date();
 
             
-
             for (let a = 0; a < connections[path].length; a++) {
                 io.to(connections[path][a]).emit("user-joined", socket.id, connections[path])
             }
@@ -77,6 +76,34 @@ export const connectToSocket = (server) => {
 
         })
 
+        socket.on("transcript-message", (text, sender) => {
+
+            const [matchingRoom, found] = Object.entries(connections)
+                .reduce(([room, isFound], [roomKey, roomValue]) => {
+
+                    if (!isFound && roomValue.includes(socket.id)) {
+                        return [roomKey, true];
+                    }
+
+                    return [room, isFound];
+
+                }, ['', false]);
+
+            if (found) {
+
+                connections[matchingRoom].forEach((elem) => {
+
+                    io.to(elem).emit(
+                        "transcript-message",
+                        text,
+                        sender,
+                        socket.id
+                    );
+
+                });
+            }
+        });
+
         socket.on("disconnect", () => {
 
             var diffTime = Math.abs(timeOnline[socket.id] - new Date())
@@ -105,8 +132,6 @@ export const connectToSocket = (server) => {
                 }
 
             }
-
-
         })
 
 
