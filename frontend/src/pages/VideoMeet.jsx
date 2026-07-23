@@ -11,8 +11,10 @@ import MicOffIcon from '@mui/icons-material/MicOff'
 import ScreenShareIcon from '@mui/icons-material/ScreenShare';
 import StopScreenShareIcon from '@mui/icons-material/StopScreenShare'
 import ChatIcon from '@mui/icons-material/Chat'
+import ClosedCaptionIcon from "@mui/icons-material/ClosedCaption";
 import SendIcon from '@mui/icons-material/Send'
 import server from '../environment';
+import Transcript from "./Transcript";
 
 const server_url = server;
 
@@ -27,9 +29,12 @@ const peerConfigConnections = {
 export default function VideoMeetComponent() {
 
     var socketRef = useRef();
+
     let socketIdRef = useRef();
 
     let localVideoref = useRef();
+
+    let recognitionRef = useRef(null);
 
     let [videoAvailable, setVideoAvailable] = useState(true);
 
@@ -59,12 +64,21 @@ export default function VideoMeetComponent() {
 
     let [videos, setVideos] = useState([])
 
+    const [transcript, setTranscript] = useState([]);
+
+    const [isTranscribing, setIsTranscribing] = useState(false);
+
+    
 
     useEffect(() => {
         console.log("HELLO")
         getPermissions();
 
-    })
+    }, []);
+
+    useEffect(() => {
+        initializeSpeechRecognition();
+    }, []);
 
     let getDislayMedia = () => {
         if (screen) {
@@ -133,9 +147,6 @@ export default function VideoMeetComponent() {
 
     }
 
-
-
-
     let getUserMediaSuccess = (stream) => {
         try {
             window.localStream.getTracks().forEach(track => track.stop())
@@ -199,9 +210,6 @@ export default function VideoMeetComponent() {
             } catch (e) { }
         }
     }
-
-
-
 
 
     let getDislayMediaSuccess = (stream) => {
@@ -279,6 +287,8 @@ export default function VideoMeetComponent() {
             socketIdRef.current = socketRef.current.id
 
             socketRef.current.on('chat-message', addMessage)
+
+            socketRef.current.on('transcript-message', addTranscript)
 
             socketRef.current.on('user-left', (id) => {
                 setVideos((videos) => videos.filter((video) => video.socketId !== id))
@@ -414,6 +424,28 @@ export default function VideoMeetComponent() {
         setMessage(e.target.value);
     }
 
+    let handleTranscript = () => {
+
+        if (!recognitionRef.current){
+            console.log("Recognition object is NULL");
+            return;
+        }
+
+        if (!isTranscribing) {
+
+            recognitionRef.current.start();
+            console.log("Starting recognition...");
+
+        } else {
+
+            recognitionRef.current.stop();
+            console.log("Stopping recognition...");
+
+        }
+
+        setIsTranscribing(!isTranscribing);
+    }
+
     const addMessage = (data, sender, socketIdSender) => {
         setMessages((prevMessages) => [
             ...prevMessages,
@@ -424,7 +456,20 @@ export default function VideoMeetComponent() {
         }
     };
 
+    const addTranscript = (text, sender, socketIdSender) => {
+        if (socketIdSender === socketIdRef.current) {
+            return;
+        }
 
+        setTranscript(prev => [
+            ...prev,
+            {
+                username: sender,
+                text
+            }
+        ]);
+
+    }
 
     let sendMessage = () => {
         console.log(socketRef.current);
@@ -439,7 +484,60 @@ export default function VideoMeetComponent() {
         setAskForUsername(false);
         getMedia();
     }
+    
+    let initializeSpeechRecognition = () => {
 
+        const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            alert("Speech Recognition is not supported.");
+            return;
+        }
+
+        recognitionRef.current = new SpeechRecognition();
+
+        recognitionRef.current.continuous = true;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = "en-US";
+
+        recognitionRef.current.onstart = () => {
+            console.log("Speech Recognition Started");
+        };
+
+        recognitionRef.current.onend = () => {
+            console.log("Speech Recognition Ended");
+        };
+
+        recognitionRef.current.onerror = (event) => {
+            console.log("Speech Recognition Error:", event.error);
+        };
+
+        recognitionRef.current.onresult = (event) => {
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+
+                if (event.results[i].isFinal) {
+
+                    const text = event.results[i][0].transcript;
+
+                    socketRef.current.emit(
+                        "transcript-message",
+                        text,
+                        username
+                    );
+
+                    setTranscript(prev => [
+                        ...prev,
+                        {
+                            username,
+                            text
+                        }
+                    ]);
+                }
+            }
+        }
+    }
 
     return (
         <div className={styles.pageRoot}>
@@ -528,6 +626,9 @@ export default function VideoMeetComponent() {
                         </div>
                     </div> : <></>}
 
+                    {isTranscribing && (
+                        <Transcript transcript={transcript} />
+                    )}
 
                     <div className={styles.buttonContainers}>
                         <IconButton onClick={handleVideo} className={styles.controlButton}>
@@ -535,6 +636,18 @@ export default function VideoMeetComponent() {
                         </IconButton>
                         <IconButton onClick={handleAudio} className={styles.controlButton}>
                             {audio === true ? <MicIcon /> : <MicOffIcon />}
+                        </IconButton>
+
+                        <IconButton
+                            onClick={() => {
+        console.log("Transcript button clicked");
+        handleTranscript();
+    }}
+                            className={styles.controlButton}
+                        >
+                            <ClosedCaptionIcon
+                                color={isTranscribing ? "primary" : "inherit"}
+                            />
                         </IconButton>
 
                         {screenAvailable === true ?
