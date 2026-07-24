@@ -13,8 +13,11 @@ import StopScreenShareIcon from '@mui/icons-material/StopScreenShare'
 import ChatIcon from '@mui/icons-material/Chat'
 import ClosedCaptionIcon from "@mui/icons-material/ClosedCaption";
 import SendIcon from '@mui/icons-material/Send'
+import TranslateIcon from "@mui/icons-material/Translate";
 import server from '../environment';
 import Transcript from "./Transcript";
+import axios from "axios";
+import { useParams } from "react-router-dom";
 
 const server_url = server;
 
@@ -27,6 +30,8 @@ const peerConfigConnections = {
 }
 
 export default function VideoMeetComponent() {
+
+    const { url } = useParams();
 
     var socketRef = useRef();
 
@@ -68,7 +73,7 @@ export default function VideoMeetComponent() {
 
     const [isTranscribing, setIsTranscribing] = useState(false);
 
-    
+    const [translatedTranscript, setTranslatedTranscript] = useState("");
 
     useEffect(() => {
         console.log("HELLO")
@@ -79,6 +84,16 @@ export default function VideoMeetComponent() {
     useEffect(() => {
         initializeSpeechRecognition();
     }, []);
+
+    /*useEffect(() => {
+    if (!isTranslating) return;
+
+    const timer = setTimeout(() => {
+        handleTranslate();
+        }, 3000);
+
+        return () => clearTimeout(timer);
+    }, [transcript, isTranslating]);*/
 
     let getDislayMedia = () => {
         if (screen) {
@@ -274,9 +289,6 @@ export default function VideoMeetComponent() {
         }
     }
 
-
-
-
     let connectToSocketServer = () => {
         socketRef.current = io.connect(server_url, { secure: false })
 
@@ -405,13 +417,23 @@ export default function VideoMeetComponent() {
         setScreen(!screen);
     }
 
-    let handleEndCall = () => {
+    let handleEndCall = async () => {
+
         try {
-            let tracks = localVideoref.current.srcObject.getTracks()
-            tracks.forEach(track => track.stop())
-        } catch (e) { }
-        window.location.href = "/"
-    }
+
+            await saveTranscript();
+
+        } catch (err) {
+            console.error(err);
+        }
+
+        try {
+            let tracks = localVideoref.current.srcObject.getTracks();
+            tracks.forEach(track => track.stop());
+        } catch (e) {}
+
+        window.location.href = "/home";
+    };
 
     let openChat = () => {
         setModal(true);
@@ -446,6 +468,37 @@ export default function VideoMeetComponent() {
         setIsTranscribing(!isTranscribing);
     }
 
+    const handleTranslate = async () => {
+        try {
+
+            if (transcript.length === 0) {
+                alert("No transcript available to translate.");
+                return;
+            }
+
+            const transcriptText = transcript
+                .map(item => `${item.username}: ${item.text}`)
+                .join("\n");
+
+            const response = await axios.post(
+                `${server_url}/api/v1/ai/translate`,
+                {
+                    transcript: transcriptText,
+                    targetLanguage: "Hindi"
+                }
+            );
+
+            if (response.data.success) {
+                setTranslatedTranscript(response.data.translation);
+            } else {
+                alert("Translation failed.");
+            }
+
+        } catch (error) {
+            console.error("Translation Error:", error);
+            alert("Failed to translate transcript.");
+        }
+    };
     const addMessage = (data, sender, socketIdSender) => {
         setMessages((prevMessages) => [
             ...prevMessages,
@@ -539,6 +592,21 @@ export default function VideoMeetComponent() {
         }
     }
 
+    const saveTranscript = async () => {
+
+        const transcriptText = transcript
+            .map(item => `${item.username}: ${item.text}`)
+            .join("\n");
+
+            await axios.post(
+                `${server_url}/api/v1/ai/save-transcript`,
+                {
+                    meetingCode: url,
+                    transcript: transcriptText
+                }
+            );
+    };
+
     return (
         <div className={styles.pageRoot}>
 
@@ -630,6 +698,24 @@ export default function VideoMeetComponent() {
                         <Transcript transcript={transcript} />
                     )}
 
+                    {translatedTranscript && (
+                        <div className={styles.translationCard}>
+                            <div className={styles.translationHeader}>
+                                <span>🌐 Hindi Translation</span>
+                                <button
+                                    className={styles.copyBtn}
+                                    onClick={() => navigator.clipboard.writeText(translatedTranscript)}
+                                >
+                                    📋 Copy
+                                </button>
+                            </div>
+
+                            <div className={styles.translationBody}>
+                                {translatedTranscript}
+                            </div>
+                        </div>
+                    )}                  
+
                     <div className={styles.buttonContainers}>
                         <IconButton onClick={handleVideo} className={styles.controlButton}>
                             {(video === true) ? <VideocamIcon /> : <VideocamOffIcon />}
@@ -640,14 +726,21 @@ export default function VideoMeetComponent() {
 
                         <IconButton
                             onClick={() => {
-        console.log("Transcript button clicked");
-        handleTranscript();
-    }}
+                                console.log("Transcript button clicked");
+                                handleTranscript();
+                            }}
                             className={styles.controlButton}
                         >
                             <ClosedCaptionIcon
                                 color={isTranscribing ? "primary" : "inherit"}
                             />
+                        </IconButton>
+
+                        <IconButton
+                            onClick={handleTranslate}
+                            className={styles.controlButton}
+                        >
+                            <TranslateIcon />
                         </IconButton>
 
                         {screenAvailable === true ?
