@@ -1,8 +1,9 @@
 import axios from "axios";
 import httpStatus from "http-status";
-import { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import server from "../environment";
+
 
 
 export const AuthContext = createContext({});
@@ -84,9 +85,33 @@ export const AuthProvider = ({ children }) => {
         }
     }
 
+    const generateMeetingSummary = async (meetingCode) => {
+    try {
+
+        const request = await axios.post(
+            `${server}/api/v1/ai/summary`,
+            {
+                meetingCode
+            }
+        );
+
+        return request.data;
+
+    } 
+    catch (err) {
+        throw err;
+        }
+    }
+
 
     const data = {
-        userData, setUserData, addToUserHistory, getHistoryOfUser, handleRegister, handleLogin
+        userData,
+        setUserData,
+        addToUserHistory,
+        getHistoryOfUser,
+        generateMeetingSummary,
+        handleRegister,
+        handleLogin
     }
 
     return (

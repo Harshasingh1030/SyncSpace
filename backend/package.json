@@ -9,7 +9,7 @@
     "start": "node src/app.js",
     "prod": "pm2 src/app.js"
   },
-  "author": "apnacollege",
+  "author": "Harsha",
   "license": "ISC",
   "dependencies": {
     "@google/genai": "^2.12.0",
