@@ -41,6 +41,24 @@ export default function VideoMeetComponent() {
 
     let recognitionRef = useRef(null);
 
+    // --- Live translation refs (no re-renders triggered by these) ---
+    // Always holds the latest transcript array so the polling interval
+    // below never reads a stale closure of `transcript`.
+    let transcriptRef = useRef([]);
+    // Index into the transcript array up to which content has already
+    // been translated by the manual "Translate" button (used only to
+    // keep that button's own dedupe behavior).
+    let lastTranslatedIndexRef = useRef(0);
+    // Raw source text (the last N transcript lines) that was last sent
+    // to the automatic translator, used to skip the API call when the
+    // rolling window hasn't actually changed.
+    let lastTranslatedWindowRef = useRef("");
+    // Simple request lock so automatic polling and the manual "Translate"
+    // button can never fire overlapping requests.
+    let isTranslatingRef = useRef(false);
+    // Handle for the polling interval so it can be cleared on unmount.
+    let translationIntervalRef = useRef(null);
+
     let [videoAvailable, setVideoAvailable] = useState(true);
 
     let [audioAvailable, setAudioAvailable] = useState(true);
@@ -85,15 +103,29 @@ export default function VideoMeetComponent() {
         initializeSpeechRecognition();
     }, []);
 
-    /*useEffect(() => {
-    if (!isTranslating) return;
+    // Keep transcriptRef in sync with transcript state so the polling
+    // interval (set up once below) always sees the latest value.
+    useEffect(() => {
+        transcriptRef.current = transcript;
+    }, [transcript]);
 
-    const timer = setTimeout(() => {
-        handleTranslate();
+    // Automatic live translation: polls every 3s, always translating the
+    // full latest transcript. Set up once on mount and torn down on
+    // unmount so there is exactly one interval for the whole component
+    // lifetime (see explanation below for why this beats a timeout chain).
+    useEffect(() => {
+        translationIntervalRef.current = setInterval(() => {
+            translateTranscript();
         }, 3000);
 
-        return () => clearTimeout(timer);
-    }, [transcript, isTranslating]);*/
+        return () => {
+            if (translationIntervalRef.current) {
+                clearInterval(translationIntervalRef.current);
+                translationIntervalRef.current = null;
+            }
+        };
+    }, []);
+
 
     let getDislayMedia = () => {
         if (screen) {
@@ -468,6 +500,70 @@ export default function VideoMeetComponent() {
         setIsTranscribing(!isTranscribing);
     }
 
+    // How many of the most recent transcript lines to keep translated
+    // and displayed. Keeps the translation panel a fixed size instead of
+    // growing forever.
+    const TRANSLATION_WINDOW_SIZE = 2;
+
+    // Core translation call, run by the automatic 3s poller. Always reads
+    // the transcript from transcriptRef (never a closed-over `transcript`
+    // value) so it always sees the latest lines.
+    // Rolling-window behavior:
+    //   - Only the last TRANSLATION_WINDOW_SIZE lines of the transcript
+    //     are ever sent to the API and shown, so the panel stays a fixed
+    //     size instead of accumulating every line from the whole call.
+    //   - The panel is REPLACED with the fresh translation each tick,
+    //     not appended to.
+    // Guards:
+    //   - isTranslatingRef prevents overlapping in-flight requests.
+    //   - If the current window's text is identical to what was already
+    //     translated last time, no API call is made.
+    const translateTranscript = async () => {
+
+        const currentTranscript = transcriptRef.current;
+
+        if (!currentTranscript || currentTranscript.length === 0) {
+            return;
+        }
+
+        if (isTranslatingRef.current) {
+            return;
+        }
+
+        const recentItems = currentTranscript.slice(-TRANSLATION_WINDOW_SIZE);
+
+        const transcriptText = recentItems
+            .map(item => `${item.username}: ${item.text}`)
+            .join("\n");
+
+        if (transcriptText === lastTranslatedWindowRef.current) {
+            return;
+        }
+
+        isTranslatingRef.current = true;
+
+        try {
+            const response = await axios.post(
+                `${server_url}/api/v1/ai/translate`,
+                {
+                    transcript: transcriptText,
+                    targetLanguage: "Hindi"
+                }
+            );
+
+            if (response.data.success) {
+                setTranslatedTranscript(response.data.translation);
+                lastTranslatedWindowRef.current = transcriptText;
+            }
+        } catch (error) {
+            // Automatic background translation must never break the rest
+            // of the app, so failures are logged only, no alert here.
+            console.error("Translation Error:", error);
+        } finally {
+            isTranslatingRef.current = false;
+        }
+    };
+
     const handleTranslate = async () => {
         try {
 
@@ -476,9 +572,17 @@ export default function VideoMeetComponent() {
                 return;
             }
 
+            if (isTranslatingRef.current) {
+                // Automatic translation is already in flight; avoid firing
+                // an overlapping request from the manual button.
+                return;
+            }
+
             const transcriptText = transcript
                 .map(item => `${item.username}: ${item.text}`)
                 .join("\n");
+
+            isTranslatingRef.current = true;
 
             const response = await axios.post(
                 `${server_url}/api/v1/ai/translate`,
@@ -490,6 +594,7 @@ export default function VideoMeetComponent() {
 
             if (response.data.success) {
                 setTranslatedTranscript(response.data.translation);
+                lastTranslatedIndexRef.current = transcript.length;
             } else {
                 alert("Translation failed.");
             }
@@ -497,6 +602,8 @@ export default function VideoMeetComponent() {
         } catch (error) {
             console.error("Translation Error:", error);
             alert("Failed to translate transcript.");
+        } finally {
+            isTranslatingRef.current = false;
         }
     };
     const addMessage = (data, sender, socketIdSender) => {
