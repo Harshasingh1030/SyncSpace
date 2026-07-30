@@ -382,8 +382,6 @@
     border-top: 1px solid var(--sy-glass-border);
 }
 
-
-
 .chatSendButton {
     color: #fff !important;
     background: var(--sy-accent) !important;
