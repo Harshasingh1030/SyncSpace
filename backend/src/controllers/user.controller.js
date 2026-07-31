@@ -39,12 +39,6 @@ const login = async (req, res) => {
 
 const register = async (req, res) => {
 
-    console.log("REGISTER CONTROLLER HIT");
-    console.log(req.body);
-
-    return res.status(201).json({
-        message: "REGISTER ROUTE WORKING"
-    });
     const { name, username, password } = req.body;
 
 
